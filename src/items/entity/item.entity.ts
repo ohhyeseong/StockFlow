@@ -9,6 +9,8 @@ export enum MattressSize {
     LK = 'LK',
 }
 
+// 상품 (매트리스)
+
 @Entity()
 export class Item {
     @PrimaryGeneratedColumn()
