@@ -7,6 +7,10 @@ import { ItemsModule } from './items/items.module';
 import { StockModule } from './stock/stock.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { Item } from './items/entity/item.entity';
+import { User } from './users/entity/user.entity';
+import { Stock } from './stock/entity/stock.entity';
+import { StockLog } from './stock/entity/stock-log.entity';
 
 @Module({
   imports: [
@@ -23,7 +27,7 @@ import { UsersModule } from './users/users.module';
         username: configService.get<string>('DB_USERNAME'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
-        entities: [],
+        entities: [Item,User,Stock,StockLog],
         synchronize: true,
       }),
     }),
