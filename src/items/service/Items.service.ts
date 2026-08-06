@@ -4,18 +4,22 @@ import { Item } from "../entity/item.entity";
 import { QueryFailedError, Repository } from "typeorm";
 import { UpdateItemDto } from "../dto/update-dto";
 import { CreateItemDto } from "../dto/create-item.dto";
+import { StockService } from "src/stock/service/stock.service";
 
 @Injectable()
 export class ItemService {
     constructor(
         @InjectRepository(Item)
         private readonly itemRepository: Repository<Item>,
+        private readonly stockService: StockService,
     ) {}
 
     async create(dto: CreateItemDto) {
         try {
             const item = this.itemRepository.create(dto);
-            return await this.itemRepository.save(item);
+            const savedItem = await this.itemRepository.save(item);
+            await this.stockService.createInitialStock(savedItem);
+            return savedItem;
         } catch (e) {
             if (e instanceof QueryFailedError && (e.driverError as any)?.code === 'ER_DUP_ENTRY') {
                 throw new ConflictException('이미 존재하는 품목 코드입니다.');
