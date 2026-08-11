@@ -1,7 +1,10 @@
-import { Controller, Get, Param, ParseIntPipe, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, ParseIntPipe, Post, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth.guard";
 import { StockService } from "../service/stock.service";
+import { StockInDto } from "../dto/stock-in.dto";
+import { CurrentUser } from "src/auth/decorator/current-user.decorator";
+import { userInfo } from "os";
 
 @ApiTags('stock')
 @ApiBearerAuth()
@@ -18,6 +21,11 @@ export class StockController {
     @Get(':itemId')
     findByItemId(@Param('itemId', ParseIntPipe) itemId: number) {
         return this.stockService.findByItemId(itemId);
+    }
+
+    @Post('in')
+    stockIn(@Body() dto: StockInDto, @CurrentUser() user: {userId: number; email: string}) {
+        return this.stockService.stockIn(dto, user.userId);
     }
 
 
