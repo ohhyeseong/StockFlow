@@ -5,6 +5,7 @@ import { StockService } from "../service/stock.service";
 import { StockInDto } from "../dto/stock-in.dto";
 import { CurrentUser } from "src/auth/decorator/current-user.decorator";
 import { userInfo } from "os";
+import { StockOutDto } from "../dto/stock-out.dto";
 
 @ApiTags('stock')
 @ApiBearerAuth()
@@ -26,6 +27,11 @@ export class StockController {
     @Post('in')
     stockIn(@Body() dto: StockInDto, @CurrentUser() user: {userId: number; email: string}) {
         return this.stockService.stockIn(dto, user.userId);
+    }
+
+    @Post('out')
+    stockOut(@Body() dto: StockOutDto, @CurrentUser() user: {userId: number; email: string}) {
+        return this.stockService.stockOut(dto, user.userId);
     }
 
 
