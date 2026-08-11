@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "src/auth/guard/jwt-auth.guard";
 import { StockService } from "../service/stock.service";
@@ -6,6 +6,7 @@ import { StockInDto } from "../dto/stock-in.dto";
 import { CurrentUser } from "src/auth/decorator/current-user.decorator";
 import { userInfo } from "os";
 import { StockOutDto } from "../dto/stock-out.dto";
+import { GetStockLogsDto } from "../dto/get-stock-logs.dto";
 
 @ApiTags('stock')
 @ApiBearerAuth()
@@ -17,6 +18,11 @@ export class StockController {
     @Get()
     findAll() {
         return this.stockService.findAll();
+    }
+
+    @Get('logs')
+    findLogs(@Query() query: GetStockLogsDto) {
+        return this.stockService.findLogs(query);
     }
 
     @Get(':itemId')

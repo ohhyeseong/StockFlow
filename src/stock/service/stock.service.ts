@@ -1,12 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { Stock } from "../entity/stock.entity";
-import { Repository } from "typeorm";
+import { Between, FindOptionsWhere, LessThanOrEqual, MoreThanOrEqual, Repository } from "typeorm";
 import { Item } from "src/items/entity/item.entity";
 import { StockLog, StockLogType } from "../entity/stock-log.entity";
 import { StockInDto } from "../dto/stock-in.dto";
 import { StockOutDto } from "../dto/stock-out.dto";
 import { DataSource } from "typeorm/browser";
+import { GetStockLogsDto } from "../dto/get-stock-logs.dto";
 
 @Injectable()
 export class StockService {
@@ -83,6 +84,35 @@ export class StockService {
             };
         });
     }
+
+    findLogs(query: GetStockLogsDto) {
+    const where: FindOptionsWhere<StockLog> = {};
+
+    if (query.itemId) {
+        where.item = { id: query.itemId };
+    }
+
+    const start = query.startDate ? new Date(query.startDate) : undefined;
+    const end = query.endDate ? new Date(query.endDate) : undefined;
+    if (end) {
+        end.setHours(23, 59, 59, 999);
+    }
+
+    if (start && end) {
+        where.createdAt = Between(start, end);
+    } else if (start) {
+        where.createdAt = MoreThanOrEqual(start);
+    } else if (end) {
+        where.createdAt = LessThanOrEqual(end);
+    }
+
+    return this.stockLogRepository.find({
+        where,
+        relations: { item: true, user: true },
+        order: { createdAt: 'DESC' },
+    });
+}
+
 
     createInitialStock(item: Item) {
         const stock = this.stockRepository.create({ item, currentQuantity: 0});
