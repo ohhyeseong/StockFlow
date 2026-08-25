@@ -14,9 +14,9 @@ export class StockLog {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @ManyToOne(() => Item)
+    @ManyToOne(() => Item, { onDelete: 'SET NULL', nullable: true })
     @JoinColumn({ name: 'item_id' })
-    item: Item;
+    item: Item | null;
 
     @ManyToOne(() => User)
     @JoinColumn({ name: 'user_id' })
