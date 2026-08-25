@@ -1,7 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
+import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { Item } from "../entity/item.entity";
-import { QueryFailedError, Repository } from "typeorm";
+import { DataSource, QueryFailedError, Repository } from "typeorm";
 import { UpdateItemDto } from "../dto/update-dto";
 import { CreateItemDto } from "../dto/create-item.dto";
 import { StockService } from "src/stock/service/stock.service";
@@ -12,23 +12,25 @@ export class ItemService {
         @InjectRepository(Item)
         private readonly itemRepository: Repository<Item>,
         private readonly stockService: StockService,
+        @InjectDataSource()
+        private readonly dataSource: DataSource,
     ) {}
 
     async create(dto: CreateItemDto) {
         try {
-            const item = this.itemRepository.create(dto);
-            const savedItem = await this.itemRepository.save(item);
-            await this.stockService.createInitialStock(savedItem);
-            return savedItem;
+            return await this.dataSource.transaction(async (manager) => {
+                const item = manager.create(Item, dto);
+                const savedItem = await manager.save(item);
+                await this.stockService.createInitialStock(savedItem, manager);
+                return savedItem;
+            });
         } catch (e) {
             if (e instanceof QueryFailedError && (e.driverError as any)?.code === 'ER_DUP_ENTRY') {
                 throw new ConflictException('이미 존재하는 품목 코드입니다.');
             }
             throw e;
         }
-        
     }
-
     findAll() {
         return this.itemRepository.find();
     }
@@ -44,7 +46,14 @@ export class ItemService {
     async update(id: number, dto: UpdateItemDto) {
         const item = await this.findOne(id);
         Object.assign(item, dto);
-        return this.itemRepository.save(item);
+        try {
+            return await this.itemRepository.save(item);
+        } catch (e) {
+            if (e instanceof QueryFailedError && (e.driverError as any)?.code === 'ER_DUP_ENTRY') {
+                throw new ConflictException('이미 존재하는 품목 코드입니다.');
+            }
+            throw e;
+        }
     }
 
     async remove(id: number) {

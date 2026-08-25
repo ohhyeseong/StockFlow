@@ -9,7 +9,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     constructor(configService: ConfigService){
         super({
             jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(), // 요청의 Authorization: Bearer <토큰> 헤더에서 꺼내옴
-            ignoreExpiration: false,  // 
+            ignoreExpiration: false,  // 토큰이 만료되면 거부한다.
             secretOrKey: configService.get<string>('JWT_SECRET')!, // 로그인 시 토큰을 서명했던 것과 같은 비밀키로 서명이 유효한지 검증
         });
     }

@@ -4,7 +4,6 @@ import { JwtAuthGuard } from "src/auth/guard/jwt-auth.guard";
 import { StockService } from "../service/stock.service";
 import { StockInDto } from "../dto/stock-in.dto";
 import { CurrentUser } from "src/auth/decorator/current-user.decorator";
-import { userInfo } from "os";
 import { StockOutDto } from "../dto/stock-out.dto";
 import { GetStockLogsDto } from "../dto/get-stock-logs.dto";
 

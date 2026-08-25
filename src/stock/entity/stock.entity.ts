@@ -8,7 +8,7 @@ export class Stock {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @OneToOne(() => Item)
+    @OneToOne(() => Item, { onDelete: 'CASCADE'})
     @JoinColumn({ name: 'item_id' })
     item: Item;
 

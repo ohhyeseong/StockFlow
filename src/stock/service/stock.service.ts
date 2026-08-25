@@ -6,7 +6,7 @@ import { Item } from "src/items/entity/item.entity";
 import { StockLog, StockLogType } from "../entity/stock-log.entity";
 import { StockInDto } from "../dto/stock-in.dto";
 import { StockOutDto } from "../dto/stock-out.dto";
-import { DataSource } from "typeorm/browser";
+import { DataSource, EntityManager } from "typeorm";
 import { GetStockLogsDto } from "../dto/get-stock-logs.dto";
 
 @Injectable()
@@ -21,30 +21,32 @@ export class StockService {
     ){}
 
     async stockIn(dto: StockInDto, userId: number) {
-        const stock = await this.stockRepository.findOne({
-            where: {item: {id: dto.itemId}},
-            relations: {item: true},
+    return this.dataSource.transaction(async (manager) => {
+        const stock = await manager.findOne(Stock, {
+            where: { item: { id: dto.itemId } },
+            relations: { item: true },
         });
 
-        if(!stock) {
+        if (!stock) {
             throw new NotFoundException(`itemId ${dto.itemId}에 해당하는 재고 정보를 찾을 수 없습니다.`);
         }
 
-        await this.stockRepository.increment({ id: stock.id}, `currentQuantity`, dto.quantity);
+        await manager.increment(Stock, { id: stock.id }, 'currentQuantity', dto.quantity);
 
-        const updatedStock = await this.stockRepository.findOne({ where: {id: stock.id}});
+        const updatedStock = await manager.findOne(Stock, { where: { id: stock.id } });
 
-        const log = this.stockLogRepository.create({
+        const log = manager.create(StockLog, {
             item: stock.item,
-            user: {id: userId} as any,
+            user: { id: userId } as any,
             type: StockLogType.IN,
             quantity: dto.quantity,
             stockAfter: updatedStock!.currentQuantity,
         });
-        await this.stockLogRepository.save(log);
+        await manager.save(log);
 
         return updatedStock;
-    }
+    });
+}
 
     async stockOut(dto: StockOutDto, userId: number) {
         return this.dataSource.transaction(async (manager) => {
@@ -92,11 +94,8 @@ export class StockService {
         where.item = { id: query.itemId };
     }
 
-    const start = query.startDate ? new Date(query.startDate) : undefined;
-    const end = query.endDate ? new Date(query.endDate) : undefined;
-    if (end) {
-        end.setHours(23, 59, 59, 999);
-    }
+    const start = query.startDate ? new Date(`${query.startDate}T00:00:00+09:00`) : undefined;
+    const end = query.endDate ? new Date(`${query.endDate}T23:59:59.999+09:00`) : undefined;
 
     if (start && end) {
         where.createdAt = Between(start, end);
@@ -114,9 +113,9 @@ export class StockService {
 }
 
 
-    createInitialStock(item: Item) {
-        const stock = this.stockRepository.create({ item, currentQuantity: 0});
-        return this.stockRepository.save(stock);
+    createInitialStock(item: Item, manager: EntityManager) {
+        const stock = manager.create(Stock, { item, currentQuantity: 0});
+        return manager.save(stock);
     }
 
     findAll() {
