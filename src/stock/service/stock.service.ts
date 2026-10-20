@@ -1,0 +1,141 @@
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
+import { Stock } from "../entity/stock.entity";
+import { And, FindOptionsWhere, LessThan, MoreThanOrEqual, Repository } from "typeorm";
+import { Item } from "../../items/entity/item.entity";
+import { StockLog, StockLogType } from "../entity/stock-log.entity";
+import { StockInDto } from "../dto/stock-in.dto";
+import { StockOutDto } from "../dto/stock-out.dto";
+import { DataSource, EntityManager } from "typeorm";
+import { GetStockLogsDto } from "../dto/get-stock-logs.dto";
+
+@Injectable()
+export class StockService {
+    constructor(
+        @InjectRepository(Stock)
+        private readonly stockRepository: Repository<Stock>,
+        @InjectRepository(StockLog)
+        private readonly stockLogRepository: Repository<StockLog>,
+        @InjectDataSource()
+        private readonly dataSource: DataSource,
+    ){}
+
+    async stockIn(dto: StockInDto, userId: number) {
+    return this.dataSource.transaction(async (manager) => {
+        const stock = await manager.findOne(Stock, {
+            where: { item: { id: dto.itemId } },
+            relations: { item: true },
+        });
+
+        if (!stock) {
+            throw new NotFoundException(`itemId ${dto.itemId}에 해당하는 재고 정보를 찾을 수 없습니다.`);
+        }
+
+        await manager.increment(Stock, { id: stock.id }, 'currentQuantity', dto.quantity);
+
+        const updatedStock = await manager.findOne(Stock, { where: { id: stock.id } });
+
+        const log = manager.create(StockLog, {
+            item: stock.item,
+            user: { id: userId } as any,
+            type: StockLogType.IN,
+            quantity: dto.quantity,
+            stockAfter: updatedStock!.currentQuantity,
+        });
+        await manager.save(log);
+
+        return updatedStock;
+    });
+}
+
+    async stockOut(dto: StockOutDto, userId: number) {
+        return this.dataSource.transaction(async (manager) => {
+            const stock = await manager.findOne(Stock, {
+                where: {item: {id: dto.itemId}},
+                relations: {item: true},
+                lock: {mode: 'pessimistic_write'},
+            });
+
+            if(!stock) {
+                throw new NotFoundException(`itemId ${dto.itemId}에 해당하는 재고 정보를 찾을 수 없습니다.`);
+            }
+
+            if (stock.currentQuantity < dto.quantity) {
+                throw new BadRequestException(
+                    `재고가 부족합니다. (현재 재고: ${stock.currentQuantity}, 요청 수량: ${dto.quantity})`,
+                );
+            }
+
+            stock.currentQuantity -= dto.quantity;
+            await manager.save(stock);
+
+            const log = manager.create(StockLog, {
+                item: stock.item,
+                user: {id: userId} as any,
+                type: StockLogType.OUT,
+                quantity: dto.quantity,
+                stockAfter: stock.currentQuantity,
+            });
+            await manager.save(log);
+
+            return {
+                id: stock.id,
+                itemId: stock.item.id,
+                currentQuantity: stock.currentQuantity,
+                lowStockWarning: stock.currentQuantity <= stock.item.minStockQuantity,
+            };
+        });
+    }
+
+    findLogs(query: GetStockLogsDto) {
+        if (query.startDate && query.endDate && query.startDate > query.endDate) {
+            throw new BadRequestException('startDate는 endDate보다 늦을 수 없습니다.');
+        }
+
+        const where: FindOptionsWhere<StockLog> = {};
+        if (query.itemId) {
+            where.item = { id: query.itemId };
+        }
+
+        const start = query.startDate ? new Date(`${query.startDate}T00:00:00+09:00`) : undefined;
+        const endExclusive = query.endDate ? new Date(`${query.endDate}T00:00:00+09:00`) : undefined;
+        if (endExclusive) {
+            // 서버 시간대와 관계없이 한국 시간의 다음 날 자정으로 이동한다.
+            endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+        }
+
+        if (start && endExclusive) {
+            where.createdAt = And(MoreThanOrEqual(start), LessThan(endExclusive));
+        } else if (start) {
+            where.createdAt = MoreThanOrEqual(start);
+        } else if (endExclusive) {
+            where.createdAt = LessThan(endExclusive);
+        }
+
+        return this.stockLogRepository.find({
+            where,
+            relations: { item: true, user: true },
+            order: { createdAt: 'DESC' },
+        });
+    }
+
+    createInitialStock(item: Item, manager: EntityManager) {
+        const stock = manager.create(Stock, { item, currentQuantity: 0});
+        return manager.save(stock);
+    }
+
+    findAll() {
+        return this.stockRepository.find({ relations: { item: true } });
+    }
+
+    async findByItemId(itemId: number) {
+        const stock = await this.stockRepository.findOne({
+            where: {item: {id: itemId }},
+            relations: { item: true },
+        });
+        if (!stock) {
+            throw new NotFoundException(`itemId ${itemId}에 해당하는 재고 정보를 찾을 수 없습니다.`);
+        }
+        return stock;
+    }
+}
