@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { Stock } from "../entity/stock.entity";
-import { Between, FindOptionsWhere, LessThanOrEqual, MoreThanOrEqual, Repository } from "typeorm";
-import { Item } from "src/items/entity/item.entity";
+import { And, FindOptionsWhere, LessThan, MoreThanOrEqual, Repository } from "typeorm";
+import { Item } from "../../items/entity/item.entity";
 import { StockLog, StockLogType } from "../entity/stock-log.entity";
 import { StockInDto } from "../dto/stock-in.dto";
 import { StockOutDto } from "../dto/stock-out.dto";
@@ -88,30 +88,36 @@ export class StockService {
     }
 
     findLogs(query: GetStockLogsDto) {
-    const where: FindOptionsWhere<StockLog> = {};
+        if (query.startDate && query.endDate && query.startDate > query.endDate) {
+            throw new BadRequestException('startDate는 endDate보다 늦을 수 없습니다.');
+        }
 
-    if (query.itemId) {
-        where.item = { id: query.itemId };
+        const where: FindOptionsWhere<StockLog> = {};
+        if (query.itemId) {
+            where.item = { id: query.itemId };
+        }
+
+        const start = query.startDate ? new Date(`${query.startDate}T00:00:00+09:00`) : undefined;
+        const endExclusive = query.endDate ? new Date(`${query.endDate}T00:00:00+09:00`) : undefined;
+        if (endExclusive) {
+            // 서버 시간대와 관계없이 한국 시간의 다음 날 자정으로 이동한다.
+            endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+        }
+
+        if (start && endExclusive) {
+            where.createdAt = And(MoreThanOrEqual(start), LessThan(endExclusive));
+        } else if (start) {
+            where.createdAt = MoreThanOrEqual(start);
+        } else if (endExclusive) {
+            where.createdAt = LessThan(endExclusive);
+        }
+
+        return this.stockLogRepository.find({
+            where,
+            relations: { item: true, user: true },
+            order: { createdAt: 'DESC' },
+        });
     }
-
-    const start = query.startDate ? new Date(`${query.startDate}T00:00:00+09:00`) : undefined;
-    const end = query.endDate ? new Date(`${query.endDate}T23:59:59.999+09:00`) : undefined;
-
-    if (start && end) {
-        where.createdAt = Between(start, end);
-    } else if (start) {
-        where.createdAt = MoreThanOrEqual(start);
-    } else if (end) {
-        where.createdAt = LessThanOrEqual(end);
-    }
-
-    return this.stockLogRepository.find({
-        where,
-        relations: { item: true, user: true },
-        order: { createdAt: 'DESC' },
-    });
-}
-
 
     createInitialStock(item: Item, manager: EntityManager) {
         const stock = manager.create(Stock, { item, currentQuantity: 0});

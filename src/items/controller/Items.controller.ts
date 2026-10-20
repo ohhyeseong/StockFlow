@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { ItemService } from "../service/Items.service";
 import { CreateItemDto } from "../dto/create-item.dto";
 import { UpdateItemDto } from "../dto/update-dto";
-import { JwtAuthGuard } from "src/auth/guard/jwt-auth.guard";
+import { JwtAuthGuard } from "../../auth/guard/jwt-auth.guard";
 
 @ApiTags('Items')
 @ApiBearerAuth()

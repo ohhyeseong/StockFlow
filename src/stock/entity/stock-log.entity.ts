@@ -1,5 +1,5 @@
-import { Item } from "src/items/entity/item.entity";
-import { User } from "src/users/entity/user.entity";
+import { Item } from "../../items/entity/item.entity";
+import { User } from "../../users/entity/user.entity";
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 
 export enum StockLogType {

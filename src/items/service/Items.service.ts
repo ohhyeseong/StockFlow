@@ -4,7 +4,7 @@ import { Item } from "../entity/item.entity";
 import { DataSource, QueryFailedError, Repository } from "typeorm";
 import { UpdateItemDto } from "../dto/update-dto";
 import { CreateItemDto } from "../dto/create-item.dto";
-import { StockService } from "src/stock/service/stock.service";
+import { StockService } from "../../stock/service/stock.service";
 
 @Injectable()
 export class ItemService {
